@@ -1,0 +1,60 @@
+disable_verify_host: true
+
+servers:
+  servers:
+    user: test
+    identity_file: ../id_ed25519_pem_no
+    inventory: |
+      num_hosts=$((9999 + $SAKE_NUM_HOSTS))
+      for port in $(seq 10000 $num_hosts); do echo "0.0.0.0:$port"; done
+    env:
+      SAKE_NUM_HOSTS: 1
+
+targets:
+  default:
+    all: true
+
+specs:
+  default:
+    output: none
+    strategy: linear
+    any_errors_fatal: true
+    ignore_errors: false
+    ignore_unreachable: false
+    silent: true
+
+tasks:
+  ping:
+    cmd: echo pong
+
+  upload-file:
+    name: upload file
+    tasks:
+      - name: check sha256sum of remote file
+        cmd: |
+          if test -f "$file"; then
+            md5=($(sha256sum "$file"))
+            echo "$md5 sake-upload.txt"
+          fi
+        register: out
+
+      - local: true
+        name: upload
+        cmd: |
+          echo "$out_stdout" | sha256sum --check --status
+          if [[ $? > 0 ]]; then
+            scp -P "$S_PORT" -i "../id_ed25519_pem_no" "$file" $S_USER@$S_HOST:/home/test
+          fi
+
+  setup:
+    tasks:
+      - name: create user
+        cmd: id -u sake &>/dev/null || sudo useradd sake
+
+      - name: create file
+        cmd: sudo install --owner sake --group sake -m 777 /dev/null sake-add.txt
+
+      - name: upload-file
+        task: upload-file
+        env:
+          file: sake-upload.txt

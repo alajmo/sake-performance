@@ -1,0 +1,24 @@
+---
+
+- hosts: all
+  become: true
+  gather_facts: no
+  tasks:
+    - name: Add user
+      ansible.builtin.user:
+        name: ansible
+
+    - name: Add file
+      ansible.builtin.file:
+        path: /home/test/ansible-add.txt
+        state: touch
+        owner: ansible
+        group: ansible
+        modification_time: preserve
+        access_time: preserve
+        mode: "777"
+
+    - name: Upload file
+      ansible.builtin.copy:
+        src: ./ansible-upload.txt
+        dest: /home/test/
